@@ -1,0 +1,43 @@
+services:
+  api:
+    build: .
+    container_name: tripmate-api
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://tripmate:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/tripmate
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5500,http://127.0.0.1:5500}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - payment_slips:/app/uploads
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: tripmate-db
+    environment:
+      POSTGRES_DB: tripmate
+      POSTGRES_USER: tripmate
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tripmate -d tripmate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  payment_slips:
+  postgres_data:
+    name: tripmate_handoff_postgres_data
